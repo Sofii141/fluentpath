@@ -1,6 +1,8 @@
-import { createContext, useContext, useCallback } from "react";
+import { createContext, useContext, useCallback, useEffect, useRef } from "react";
 import { useLocalStorage } from "../lib/useLocalStorage";
 import { ALL_STATIONS, LEVEL_ORDER, levelIndex } from "../data/curriculum";
+import { useAuth } from "./AuthContext";
+import { api } from "../lib/api";
 
 const ProgressContext = createContext(null);
 
@@ -35,6 +37,40 @@ export function ProgressProvider({ children }) {
     weekSkills: {},  // skill -> times practiced this week
     dayDone: {},     // "YYYY-MM-DD" -> { skill: true } activities finished today
   });
+
+  // ---- Cloud sync (only when logged in) ----
+  const { token } = useAuth();
+  const syncedRef = useRef(false);
+
+  // On login: pull the account's progress, or seed the cloud with local data.
+  useEffect(() => {
+    if (!token) { syncedRef.current = false; return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { progress } = await api.getProgress(token);
+        if (cancelled) return;
+        if (progress) {
+          const { updatedAt, ...rest } = progress;
+          setData((d) => ({ ...d, ...rest }));
+        } else {
+          await api.saveProgress(data, token);
+        }
+        syncedRef.current = true;
+      } catch {
+        /* offline — keep using local storage */
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // While logged in, debounce-save every change to the cloud.
+  useEffect(() => {
+    if (!token || !syncedRef.current) return;
+    const t = setTimeout(() => { api.saveProgress(data, token).catch(() => {}); }, 1200);
+    return () => clearTimeout(t);
+  }, [data, token]);
 
   /** Register study activity: award XP, keep streak alive, track daily goal. */
   const addXp = useCallback((amount) => {

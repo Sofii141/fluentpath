@@ -17,6 +17,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local database (backend)
+server/data.json
+server/data.json.tmp
+
 # Accidental empty nested clone (delete the folder when OneDrive releases it)
 fluentpath/
 

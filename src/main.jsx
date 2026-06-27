@@ -5,14 +5,17 @@ import './index.css'
 import App from './App.jsx'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProgressProvider } from './context/ProgressContext'
+import { AuthProvider } from './context/AuthContext'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <ProgressProvider>
-          <App />
-        </ProgressProvider>
+        <AuthProvider>
+          <ProgressProvider>
+            <App />
+          </ProgressProvider>
+        </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,

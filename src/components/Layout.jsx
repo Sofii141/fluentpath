@@ -2,10 +2,11 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   Home, Map, Layers, Headphones, Mic, BookOpen, PenLine,
   MessagesSquare, Bot, Flame, Star, Sun, Moon, GraduationCap,
-  FileCheck, User, ClipboardCheck, Library,
+  FileCheck, User, ClipboardCheck, Library, LogIn, Cloud,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useProgress } from "../context/ProgressContext";
+import { useAuth } from "../context/AuthContext";
 
 const NAV = [
   { to: "/", label: "Home", Icon: Home },
@@ -27,6 +28,7 @@ export default function Layout({ children }) {
   const { theme, toggle } = useTheme();
   const { pathname } = useLocation();
   const { data } = useProgress();
+  const { isAuthed, user } = useAuth();
 
   return (
     <div className="min-h-screen bg-app">
@@ -60,8 +62,13 @@ export default function Layout({ children }) {
           ))}
         </nav>
 
+        <NavLink to="/login"
+          className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-soft hover:bg-surface-2 hover:text-main">
+          {isAuthed ? <Cloud size={18} className="text-emerald-500" /> : <LogIn size={18} />}
+          <span className="truncate">{isAuthed ? (user?.name || user?.email || "Account") : "Sign in"}</span>
+        </NavLink>
         <button onClick={toggle}
-          className="mt-3 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-soft hover:bg-surface-2 hover:text-main">
+          className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-soft hover:bg-surface-2 hover:text-main">
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           {theme === "dark" ? "Light mode" : "Dark mode"}
         </button>
