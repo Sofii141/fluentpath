@@ -76,6 +76,27 @@ app.put("/api/progress", auth, (req, res) => {
   res.json({ progress: db.setProgress(req.userId, progress) });
 });
 
+app.post("/api/feedback", auth, (req, res) => {
+  const { type, scenario, transcript, feedback } = req.body || {};
+  if (!feedback) return res.status(400).json({ error: "Missing feedback" });
+  const record = db.addFeedback(req.userId, { type, scenario, transcript, feedback });
+  res.json({ entry: record });
+});
+
+app.get("/api/feedback", auth, (req, res) => {
+  res.json({ feedback: db.getFeedback(req.userId) });
+});
+
+app.put("/api/conversation", auth, (req, res) => {
+  const conv = req.body?.conversation;
+  if (!conv || !conv.id) return res.status(400).json({ error: "Invalid conversation" });
+  res.json({ conversation: db.saveConversation(req.userId, conv) });
+});
+
+app.get("/api/conversations", auth, (req, res) => {
+  res.json({ conversations: db.getConversations(req.userId) });
+});
+
 app.listen(PORT, () => {
   console.log(`EnglishUp API running on http://localhost:${PORT}`);
 });

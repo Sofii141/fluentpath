@@ -12,6 +12,7 @@ import Tutor from "./pages/Tutor";
 import Toefl from "./pages/Toefl";
 import LevelTest from "./pages/LevelTest";
 import Resources from "./pages/Resources";
+import History from "./pages/History";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Onboarding from "./components/Onboarding";
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/toefl" element={<Toefl />} />
         <Route path="/level-test" element={<LevelTest />} />
         <Route path="/resources" element={<Resources />} />
+        <Route path="/history" element={<History />} />
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<ComingSoon iconName="Map" title="Page not found" />} />

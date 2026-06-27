@@ -15,14 +15,22 @@
 
 const KEY = "englishup.azure";
 
+/** Optional default from the .env (VITE_ vars are injected at build time). */
+function envConfig() {
+  const key = import.meta.env.VITE_AZURE_SPEECH_KEY;
+  const region = import.meta.env.VITE_AZURE_SPEECH_REGION;
+  return key && region ? { key, region } : null;
+}
+
 export function getAzureConfig() {
   try {
     const raw = localStorage.getItem(KEY);
     const cfg = raw ? JSON.parse(raw) : null;
-    return cfg?.key && cfg?.region ? cfg : null;
+    if (cfg?.key && cfg?.region) return cfg;
   } catch {
-    return null;
+    /* ignore and fall through to env */
   }
+  return envConfig();
 }
 
 export function saveAzureConfig(cfg) {
@@ -40,7 +48,7 @@ export const azureConfigured = () => !!getAzureConfig();
  * Resolves with { pronunciation, accuracy, fluency, completeness, words, recognized }.
  * Each word: { word, accuracy, errorType, phonemes:[{ phoneme, accuracy }] }.
  */
-export async function assessPronunciation(referenceText) {
+async function runAssessment(referenceText, enableMiscue) {
   const cfg = getAzureConfig();
   if (!cfg) throw new Error("Azure not configured");
 
@@ -57,8 +65,10 @@ export async function assessPronunciation(referenceText) {
     referenceText,
     SDK.PronunciationAssessmentGradingSystem.HundredMark,
     SDK.PronunciationAssessmentGranularity.Phoneme,
-    true // enable miscue detection (insertions/omissions)
+    enableMiscue
   );
+  // Prosody scoring (intonation/rhythm) when supported — great for fluency.
+  try { paConfig.enableProsodyAssessment = true; } catch { /* older SDK */ }
   paConfig.applyTo(recognizer);
 
   return new Promise((resolve, reject) => {
@@ -101,3 +111,12 @@ export async function assessPronunciation(referenceText) {
     );
   });
 }
+
+/** Scripted assessment: compare speech against a known target sentence. */
+export const assessPronunciation = (referenceText) => runAssessment(referenceText, true);
+
+/**
+ * Reference-text-free assessment for free conversation: the learner can say
+ * anything, and we still score how well they pronounced it (no target needed).
+ */
+export const assessSpeech = () => runAssessment("", false);

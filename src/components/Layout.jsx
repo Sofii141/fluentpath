@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   Home, Map, Layers, Headphones, Mic, BookOpen, PenLine,
   MessagesSquare, Bot, Flame, Star, Sun, Moon, GraduationCap,
-  FileCheck, User, ClipboardCheck, Library, LogIn, Cloud,
+  FileCheck, User, ClipboardCheck, Library, LogIn, Cloud, History,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useProgress } from "../context/ProgressContext";
@@ -21,6 +21,7 @@ const NAV = [
   { to: "/level-test", label: "Level Test", Icon: ClipboardCheck },
   { to: "/toefl", label: "TOEFL Mock", Icon: FileCheck },
   { to: "/resources", label: "Resources", Icon: Library },
+  { to: "/history", label: "History", Icon: History },
   { to: "/profile", label: "Profile", Icon: User },
 ];
 

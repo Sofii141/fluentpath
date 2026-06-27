@@ -24,6 +24,10 @@ export const api = {
   me: (token) => request("/api/me", { token }),
   getProgress: (token) => request("/api/progress", { token }),
   saveProgress: (progress, token) => request("/api/progress", { method: "PUT", body: { progress }, token }),
+  saveFeedback: (entry, token) => request("/api/feedback", { method: "POST", body: entry, token }),
+  getFeedback: (token) => request("/api/feedback", { token }),
+  saveConversation: (conversation, token) => request("/api/conversation", { method: "PUT", body: { conversation }, token }),
+  getConversations: (token) => request("/api/conversations", { token }),
   health: () => request("/api/health"),
 };
 

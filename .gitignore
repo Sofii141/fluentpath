@@ -20,6 +20,8 @@ dist-ssr
 # Local database (backend)
 server/data.json
 server/data.json.tmp
+server/feedback/
+server/conversations/
 
 # Accidental empty nested clone (delete the folder when OneDrive releases it)
 fluentpath/

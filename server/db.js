@@ -9,6 +9,8 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_FILE = join(__dirname, "data.json");
+const FEEDBACK_DIR = join(__dirname, "feedback");
+const CONV_DIR = join(__dirname, "conversations");
 
 function load() {
   if (!existsSync(DATA_FILE)) return { users: [], progress: {} };
@@ -55,5 +57,49 @@ export const db = {
     data.progress[userId] = { ...progress, updatedAt: new Date().toISOString() };
     save(data);
     return data.progress[userId];
+  },
+
+  // ---- Feedback log (one JSON file per user in server/feedback/) ----
+  addFeedback(userId, entry) {
+    if (!existsSync(FEEDBACK_DIR)) mkdirSync(FEEDBACK_DIR, { recursive: true });
+    const file = join(FEEDBACK_DIR, `${userId}.json`);
+    let list = [];
+    if (existsSync(file)) {
+      try { list = JSON.parse(readFileSync(file, "utf8")); } catch { list = []; }
+    }
+    const record = { id: `f_${Date.now()}`, date: new Date().toISOString(), ...entry };
+    list.push(record);
+    const tmp = file + ".tmp";
+    writeFileSync(tmp, JSON.stringify(list, null, 2));
+    renameSync(tmp, file);
+    return record;
+  },
+  getFeedback(userId) {
+    const file = join(FEEDBACK_DIR, `${userId}.json`);
+    if (!existsSync(file)) return [];
+    try { return JSON.parse(readFileSync(file, "utf8")); } catch { return []; }
+  },
+
+  // ---- Saved conversations (one file per user, keyed by conversation id) ----
+  saveConversation(userId, conv) {
+    if (!existsSync(CONV_DIR)) mkdirSync(CONV_DIR, { recursive: true });
+    const file = join(CONV_DIR, `${userId}.json`);
+    let obj = {};
+    if (existsSync(file)) {
+      try { obj = JSON.parse(readFileSync(file, "utf8")); } catch { obj = {}; }
+    }
+    obj[conv.id] = { ...conv, updatedAt: new Date().toISOString() };
+    const tmp = file + ".tmp";
+    writeFileSync(tmp, JSON.stringify(obj, null, 2));
+    renameSync(tmp, file);
+    return obj[conv.id];
+  },
+  getConversations(userId) {
+    const file = join(CONV_DIR, `${userId}.json`);
+    if (!existsSync(file)) return [];
+    try {
+      const obj = JSON.parse(readFileSync(file, "utf8"));
+      return Object.values(obj).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    } catch { return []; }
   },
 };
