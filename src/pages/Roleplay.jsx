@@ -7,13 +7,17 @@ import { SCENARIOS, INTERVIEWS } from "../data/roleplay";
 import { PREP_QUESTIONS, POWER_PHRASES } from "../data/interviewPrep";
 import { CV_SUMMARY } from "../data/cv";
 import { tutorReply, getTutorConfig } from "../lib/ai";
-import { speak, createRecognizer, sttSupported } from "../lib/speech";
+import { speak, createRecognizer, sttSupported, scorePronunciation } from "../lib/speech";
+import { assessPronunciation, azureConfigured } from "../lib/pronunciation";
 import { useProgress } from "../context/ProgressContext";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { usePersistentConversation } from "../lib/conversations";
 
 const ICONS = { Briefcase, Coffee, Plane, Users, Utensils, Code, Tent, GraduationCap, Globe };
+
+const scoreColor = (s) => (s >= 80 ? "var(--color-emerald-500)" : s >= 60 ? "var(--color-amber-500)" : "var(--color-rose-500)");
+const splitSentences = (t) => t.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()).filter(Boolean) || [t];
 
 export default function Roleplay() {
   const [active, setActive] = useState(null);
@@ -34,24 +38,28 @@ export default function Roleplay() {
         </p>
       )}
 
-      {/* Interview prep cheat sheet */}
-      <button onClick={() => setShowPrep(true)}
-        className="flex w-full items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/60 p-4 text-left hover:bg-brand-50">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-brand-600 text-white"><Lightbulb size={20} /></span>
-        <div className="flex-1">
-          <h3 className="font-display font-extrabold text-brand-700">Interview Prep — questions & model answers</h3>
-          <p className="text-sm text-soft">Study strong answers built from your CV, hear them, and learn power phrases. Read this before you practice.</p>
-        </div>
-        <span className="text-brand-600">→</span>
-      </button>
-
-      {/* Interview practice */}
+      {/* ===== Interview preparation: two modes ===== */}
       <section>
         <div className="mb-3 flex items-center gap-2">
           <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-600/10 text-brand-600"><Briefcase size={16} /></span>
-          <h2 className="font-display text-lg font-bold text-main">Interview Practice</h2>
+          <h2 className="font-display text-lg font-bold text-main">Interview Preparation</h2>
         </div>
-        <p className="mb-3 text-sm text-soft">For job, scholarship, and summer-program interviews. The AI asks real questions and gives you feedback at the end.</p>
+        <p className="mb-3 text-sm text-soft">Two ways to prepare: first sharpen your pronunciation by shadowing model answers, then practice the real interview with feedback.</p>
+
+        {/* Mode 1 — shadow model answers */}
+        <button onClick={() => setShowPrep(true)}
+          className="mb-3 flex w-full items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/60 p-4 text-left hover:bg-brand-50">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-brand-600 text-white"><Mic size={20} /></span>
+          <div className="flex-1">
+            <h3 className="font-display font-extrabold text-brand-700">1 · Shadow model answers (pronunciation)</h3>
+            <p className="text-sm text-soft">Hear strong answers built from your CV, repeat each sentence, and get a pronunciation score.</p>
+          </div>
+          <span className="text-brand-600">→</span>
+        </button>
+
+        {/* Mode 2 — real interview */}
+        <p className="mb-2 mt-4 text-sm font-semibold text-main">2 · Practice the real interview</p>
+        <p className="mb-3 text-xs text-soft">The AI asks real questions, you answer in your own words, and it corrects you and gives feedback at the end.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {INTERVIEWS.map((s) => {
             const I = ICONS[s.icon] || Briefcase;
@@ -98,49 +106,110 @@ export default function Roleplay() {
   );
 }
 
+/** One sentence you can hear and then say back, with a pronunciation score. */
+function ShadowLine({ text }) {
+  const pro = azureConfigured();
+  const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const recRef = useRef(null);
+
+  const record = async () => {
+    setError(""); setResult(null);
+    if (pro) {
+      setBusy(true); setListening(true);
+      try { setResult(await assessPronunciation(text)); }
+      catch (e) { setError(e.message); }
+      setBusy(false); setListening(false);
+      return;
+    }
+    // Free fallback: browser transcription → word-match score.
+    if (listening) { recRef.current?.stop(); return; }
+    const rec = createRecognizer({
+      onResult: () => {},
+      onEnd: () => setListening(false),
+      onError: () => setListening(false),
+    });
+    if (!rec) { setError("Speech recognition not supported here."); return; }
+    rec.onresult = (ev) => {
+      const heard = ev.results[0]?.[0]?.transcript || "";
+      const r = scorePronunciation(text, heard);
+      setResult({ pronunciation: r.score, words: r.words.map((w) => ({ word: w.word, accuracy: w.ok ? 100 : 0 })) });
+    };
+    recRef.current = rec; setListening(true); rec.start();
+  };
+
+  const score = result?.pronunciation;
+  return (
+    <div className="rounded-lg border border-app bg-surface p-3">
+      <p className="text-sm text-main">{text}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button onClick={() => speak(text)} className="inline-flex items-center gap-1.5 rounded-md border border-app px-2.5 py-1 text-xs font-medium text-soft hover:text-brand-600">
+          <Volume2 size={13} /> Listen
+        </button>
+        <button onClick={record} disabled={busy}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50 ${listening ? "bg-rose-500 animate-pulse" : "bg-brand-600 hover:bg-brand-700"}`}>
+          <Mic size={13} /> {busy ? "Scoring…" : listening ? "Listening…" : "Say it"}
+        </button>
+        {score != null && (
+          <span className="text-xs font-bold" style={{ color: scoreColor(score) }}>{score}%</span>
+        )}
+      </div>
+      {result?.words?.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {result.words.map((w, i) => (
+            <span key={i} className="rounded px-1.5 py-0.5 text-xs font-medium"
+              style={{ background: `color-mix(in srgb, ${scoreColor(w.accuracy)} 14%, transparent)`, color: scoreColor(w.accuracy) }}>
+              {w.word}
+            </span>
+          ))}
+        </div>
+      )}
+      {error && <p className="mt-1 text-xs text-rose-500">{error}</p>}
+    </div>
+  );
+}
+
 function InterviewPrep({ onExit }) {
+  const pro = azureConfigured();
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <button onClick={onExit} className="flex items-center gap-1.5 text-sm font-medium text-soft hover:text-main">
         <ArrowLeft size={16} /> Roleplay
       </button>
       <header>
-        <h1 className="font-display text-2xl font-extrabold text-main">Interview Prep</h1>
-        <p className="mt-1 text-soft">Model answers built from your real CV. Read them, tap <b>Listen</b> to hear them, then say them out loud (shadowing). Make them your own — don't memorize word for word.</p>
+        <h1 className="font-display text-2xl font-extrabold text-main">Shadow Model Answers</h1>
+        <p className="mt-1 text-soft">
+          For each question, <b>Listen</b> to the model answer, then tap <b>Say it</b> to repeat each sentence and get a pronunciation score{pro ? "" : " (free mode: word match)"}. This is how you make your pronunciation sharp before the real interview.
+        </p>
       </header>
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-main"><BookOpen size={18} className="text-brand-600" /> Likely questions & strong answers</h2>
         {PREP_QUESTIONS.map((item, i) => (
           <details key={i} className="rounded-xl border border-app bg-surface p-4 shadow-card" open={i === 0}>
             <summary className="cursor-pointer font-semibold text-main">{i + 1}. {item.q}</summary>
             <p className="mt-2 flex items-start gap-1.5 text-xs text-mute"><Lightbulb size={13} className="mt-0.5 shrink-0 text-amber-500" /> {item.tip}</p>
-            <p className="mt-2 rounded-lg bg-surface-2 p-3 text-sm leading-relaxed text-main">{item.answer}</p>
             <button onClick={() => speak(item.answer)}
               className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-app px-3 py-1.5 text-sm font-medium text-soft hover:text-brand-600">
-              <Volume2 size={14} /> Listen
+              <Volume2 size={14} /> Listen to full answer
             </button>
+            <div className="mt-3 space-y-2">
+              {splitSentences(item.answer).map((s, j) => <ShadowLine key={j} text={s} />)}
+            </div>
           </details>
         ))}
       </section>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-main"><Sparkles size={18} className="text-brand-600" /> Power phrases (sound fluent)</h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {POWER_PHRASES.map((p, i) => (
-            <div key={i} className="flex items-start justify-between gap-2 rounded-lg border border-app bg-surface p-3 shadow-card">
-              <div>
-                <p className="text-sm font-semibold text-main">"{p.en}"</p>
-                <p className="text-xs text-mute">{p.use}</p>
-              </div>
-              <button onClick={() => speak(p.en)} className="shrink-0 text-mute hover:text-brand-600"><Volume2 size={15} /></button>
-            </div>
-          ))}
+        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-main"><Sparkles size={18} className="text-brand-600" /> Power phrases (shadow these too)</h2>
+        <div className="space-y-2">
+          {POWER_PHRASES.map((p, i) => <ShadowLine key={i} text={p.en} />)}
         </div>
       </section>
 
       <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-4 text-sm text-brand-700">
-        <b>Next step:</b> go back and run the <b>GDSD interview</b> — try answering in your own words, then get feedback. Repeat until it feels natural.
+        <b>Next step:</b> once these feel natural, go back and run the <b>real GDSD interview</b> — answer in your own words and get feedback.
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import LearningPath from "./pages/LearningPath";
+import Plan from "./pages/Plan";
 import Vocabulary from "./pages/Vocabulary";
 import Listening from "./pages/Listening";
 import Speaking from "./pages/Speaking";
@@ -25,6 +26,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/path" element={<LearningPath />} />
+        <Route path="/plan" element={<Plan />} />
         <Route path="/vocab" element={<Vocabulary />} />
         <Route path="/listening" element={<Listening />} />
         <Route path="/speaking" element={<Speaking />} />

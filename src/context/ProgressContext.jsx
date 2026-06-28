@@ -36,6 +36,8 @@ export function ProgressProvider({ children }) {
     week: weekKey(), // current week bucket
     weekSkills: {},  // skill -> times practiced this week
     dayDone: {},     // "YYYY-MM-DD" -> { skill: true } activities finished today
+    speakGoalMin: 15,          // mandatory daily speaking minutes
+    speak: { date: todayStr(), seconds: 0 }, // speaking time done today
   });
 
   // ---- Cloud sync (only when logged in) ----
@@ -101,6 +103,17 @@ export function ProgressProvider({ children }) {
     });
   }, [setData]);
 
+  /** Accumulate daily speaking time (in seconds), resetting on a new day. */
+  const addSpeakSeconds = useCallback((secs) => {
+    setData((d) => {
+      const today = todayStr();
+      const cur = d.speak?.date === today ? d.speak.seconds : 0;
+      return { ...d, speak: { date: today, seconds: cur + secs } };
+    });
+  }, [setData]);
+
+  const setSpeakGoal = useCallback((min) => setData((d) => ({ ...d, speakGoalMin: min })), [setData]);
+
   /** Mark progress on a specific station. */
   const completeLesson = useCallback((stationId, lessonsDone) => {
     setData((d) => ({
@@ -158,6 +171,11 @@ export function ProgressProvider({ children }) {
   const skillsThisWeek = data.week === weekKey() ? (data.weekSkills || {}) : {};
   const doneToday = data.dayDone?.[todayStr()] || {};
 
+  // Daily speaking goal tracking.
+  const speakGoalSec = (data.speakGoalMin || 15) * 60;
+  const speakToday = data.speak?.date === todayStr() ? data.speak.seconds : 0;
+  const speakDoneToday = speakToday >= speakGoalSec;
+
   // The next station you haven't finished — drives "what to do now".
   const nextStation =
     ALL_STATIONS.find((s) => (data.completed[s.id] || 0) < s.lessons && isStationUnlocked(s.id)) ||
@@ -171,10 +189,12 @@ export function ProgressProvider({ children }) {
 
   const value = {
     data, setData, addXp, completeLesson, practiceSkill, setLevel,
+    addSpeakSeconds, setSpeakGoal,
     isStationDone, isStationUnlocked,
     totalLessons, doneLessons,
     overallPct: Math.round((doneLessons / totalLessons) * 100),
     skillsThisWeek, doneToday,
+    speakGoalSec, speakToday, speakDoneToday,
     nextStation, effectiveLevel, nextLevel, isMaxLevel,
   };
 
